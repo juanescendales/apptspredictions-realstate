@@ -1,25 +1,17 @@
+import datetime
 import streamlit as st
 import plotly.graph_objects as go
-import datetime
 import pandas as pd
 from datetime import timedelta
-from tools.data_tools import *
 from model import LGBMRegressorModel
+from tools.data_tools import *
 
 
 
-
-def to_start_date(date):
-    month = date.month
-    year = date.year
-    inflection_point = datetime.date(year, month, 16)
-    if(date < inflection_point):
-        return datetime.date(year, month, 1)
-    else:
-        return inflection_point
 
 
 def page_prediction():
+    st.error("NOT WORKING")
     df = load_data()
     st.title("Prediction")
     st.header("Parameters Selection")
@@ -33,9 +25,13 @@ def page_prediction():
 
 
 
-    start_date_option = to_start_date(st.date_input(
-        "Select a start date, remember predictions are only done with first or last two weeks of each month", datetime.date.today(), max_value = datetime.date.today() + timedelta(days = 365),min_value= to_start_date(last_date + timedelta(days = 16))))
+    date_option = st.date_input(
+        "Select a start date, remember predictions are only done with first or last two weeks of each month", datetime.date.today(), max_value = datetime.date.today() + timedelta(days = 365),min_value= to_start_date(last_date + timedelta(days = 16)))
+    start_date_option = to_start_date(date_option)
+    end_date_option = to_end_date(date_option)
     st.write("Your *start date* is:",start_date_option)
+    st.write("Your *end date* is:",end_date_option)
+
     listings_option = st.number_input('Select the number of listings:',min_value=0,value= 10,step = 1)
     button = st.button("Make Prediction")
     if(button):
