@@ -1,8 +1,10 @@
 import streamlit as st
 import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
-from tools.seasonality_tools import normalizationBySeasonality
+from scipy import signal
 from tools.data_tools import *
+
+
 
 @st.cache()
 def calculate_periods():
@@ -39,9 +41,7 @@ def period_plot(df,periods,subheader,years,dictionary_encoding):
         st.subheader(subheader)
         st.plotly_chart(fig, use_container_width=True)
 
-def plot_time_series(df, years, subheader,periods,periods_number):
-    
-
+def plot_time_series(df, years, subheader,periods,periods_number,seasonality = False, df_seasonality = None):
     if(len(years) != 0):
 
         fig = go.Figure()
@@ -51,9 +51,49 @@ def plot_time_series(df, years, subheader,periods,periods_number):
             fig.add_trace(go.Scatter(x=periods, y=y_edge,
                                      mode='lines+markers',
                                      name=str(year), connectgaps=True))
+            if(seasonality):
+                y_edge_seasonality = [filter_item(df_seasonality[df_seasonality['start_date'] == str(
+                year)+'-'+period_number]) for period_number in periods_number]
+                fig.add_trace(go.Scatter(x=periods, y=y_edge_seasonality,
+                                     mode='lines+markers',
+                                     name=str(year) + '- No seasonality', connectgaps=True))
+
 
         st.subheader(subheader)
         st.plotly_chart(fig, use_container_width=True)
+
+def show_plots(df,years_list,periods_list,periods_number_list,dictionary_encoding,key = 1):
+    st.subheader("Time series plot")
+    df_without_seasonality = quitSeasonality(df)
+    years = st.multiselect(
+        'Select the years you want to visualize', years_list,key = (4*key))
+    seasonality_year_checkbox = st.checkbox("Show without seasonality",key= (4*key)+1)
+    
+    plot_time_series(df, years, 'Historical Plot',periods_list,periods_number_list)
+    if(seasonality_year_checkbox):
+        plot_time_series(df_without_seasonality, years, 'Historical Plot - without Seasonality',periods_list,periods_number_list)
+
+
+    st.subheader("Period comparison plot")
+    periods = st.multiselect(
+        'Select the periods you want to visualize', periods_list,key= (4*key)+2)
+    seasonality_periods_checkbox = st.checkbox("Show without seasonality",key= (4*key)+3)
+
+    period_plot(df,periods,'Period Plot',years_list,dictionary_encoding)
+
+    if(seasonality_periods_checkbox):
+        period_plot(df_without_seasonality,periods,'Period Plot - without Seasonality',years_list,dictionary_encoding)
+
+def quitSeasonality(df):
+    
+    df_out = df.copy(deep=True)
+    df_out['appts_per_listing'] = signal.detrend(df_out['appts_per_listing'])
+
+    #scaler = MinMaxScaler()
+    #df_out['appts_per_listing'] = scaler.fit_transform(df_out['appts_per_listing'].values.reshape(-1, 1))
+
+    df_out['appts_per_listing'] = df_out['appts_per_listing'] - min(df_out['appts_per_listing'].to_numpy())
+    return df_out
 
 
 def page_timeseries():
@@ -72,53 +112,4 @@ def page_timeseries():
     df_filtered = to_clean_time_series(df_filtered_raw)
     st.write(df_filtered)
 
-    st.subheader("Time series plot")
-    years = st.multiselect(
-        'Select the years you want to visualize', years_list)
-
-    plot_time_series(df_filtered_raw, years, 'Line Plot',periods_list,periods_number_list)
-
-    st.subheader("Period comparison plot")
-    periods = st.multiselect(
-        'Select the periods you want to visualize', periods_list)
-
-    period_plot(df_filtered_raw,periods,'Line Plot',years_list,dictionary_encoding)
-    
-
-    # chart_data = df_filtered['appts_per_listing']
-    # st.line_chart(chart_data)
-
-    """ 
-    scaler = MinMaxScaler()
-
-    df_filtered_normalized = df_filtered.copy(deep=True)
-    df_filtered_normalized['appts_per_listing'] = scaler.fit_transform(
-        df_filtered['appts_per_listing'].values.reshape(-1, 1))
-
-    st.subheader('Line plot with Min-Max normalization')
-    fig = go.Figure(data=go.Scatter(x=df_filtered_normalized.index,
-                                    y=df_filtered_normalized.appts_per_listing, mode='lines+markers'))
-    st.plotly_chart(fig, use_container_width=True)"""
-
-    # chart_data_filtered = df_filtered_normalized['appts_per_listing']
-    # st.line_chart(chart_data_filtered)
-
-    """df_filtered_season_normalized_raw = normalizationBySeasonality(
-        df_filtered_raw, normalizationType='submean')
-    df_filtered_season_normalized = to_clean_time_series(
-        df_filtered_season_normalized_raw)
-
-    st.subheader('Line plot with Season normalization')
-    fig = go.Figure(data=go.Scatter(x=df_filtered_season_normalized.index,
-                                    y=df_filtered_season_normalized.appts_per_listing, mode='lines+markers'))
-    st.plotly_chart(fig, use_container_width=True)"""
-
-    # season_scaler = MinMaxScaler()
-    # df_filtered_season_normalized_minmax = df_filtered_season_normalized.copy(deep=True)
-    # df_filtered_season_normalized_minmax['appts_per_listing'] = season_scaler.fit_transform(
-    #    df_filtered_season_normalized['appts_per_listing'].values.reshape(-1, 1))
-
-    # st.subheader('Line plot with Season Min-Max normalization')
-    # fig = go.Figure(data=go.Scatter(x=df_filtered_season_normalized_minmax.index,
-    #                                y=df_filtered_season_normalized_minmax.appts_per_listing, mode='lines+markers'))
-    # st.plotly_chart(fig, use_container_width=True)
+    show_plots(df_filtered_raw,years_list,periods_list,periods_number_list,dictionary_encoding)
